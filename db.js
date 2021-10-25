@@ -5,6 +5,8 @@ const config = {
 };
 
 const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt');
+
 
 if(process.env.LOGGING){
   delete config.logging;
@@ -15,6 +17,24 @@ const User = conn.define('user', {
   username: STRING,
   password: STRING
 });
+
+// User.beforeCreate = (user) => {
+//   const saltRounds = 10;
+//   bcrypt.genSalt(saltRounds, function(err, salt) {
+//     bcrypt.hash(user.password, salt, function(err, hash) {
+//         // Store hash in your password DB.
+//         console.log(hash);
+//     });
+// });
+// }
+
+User.addHook('beforeCreate', async(user)=> {
+  if(user.changed('password')){
+    user.password = await bcrypt.hash(user.password, 3);
+  }
+});
+
+
 
 User.byToken = async(token)=> {
   try {
@@ -36,19 +56,32 @@ User.byToken = async(token)=> {
 };
 
 User.authenticate = async({ username, password })=> {
-  const user = await User.findOne({
+  const findingUser = await User.findOne({
     where: {
-      username,
-      password
+      username
     }
-  });
-  if(user){
-    return user.id;
+
+  const correct = await bcrypt.compare(password, findingUser.password);
+
+  if(correct === true) {
+    const user = await User.findOne({
+      where: {
+        username,
+        findingUser.password
+      }
+    });
+    if(user){
+      return user.id;
+    }
   }
+})
+
   const error = Error('bad credentials');
   error.status = 401;
   throw error;
 };
+
+
 
 const syncAndSeed = async()=> {
   await conn.sync({ force: true });
