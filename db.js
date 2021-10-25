@@ -4,6 +4,8 @@ const config = {
   logging: false
 };
 
+const jwt = require('jsonwebtoken')
+
 if(process.env.LOGGING){
   delete config.logging;
 }
@@ -16,8 +18,10 @@ const User = conn.define('user', {
 
 User.byToken = async(token)=> {
   try {
-    const user = await User.findByPk(token);
-    if(user){
+    const verify = jwt.verify(token, process.env.JWT)
+    if(verify){
+      console.log(verify)
+      const user = await User.findByPk(verify.userId);
       return user;
     }
     const error = Error('bad credentials');
